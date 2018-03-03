@@ -4,104 +4,145 @@ using System.Collections.Generic;
 namespace ConsoleArguments
 {
     class ConsoleArgs{
-        private string[] allArgs;
+        private String[] allArgs;
         private Queue<String> argsQueue = new Queue<String>();
-        private CommandType command;
-        private List<ArgType> args = new List<ArgType>();
-        private List<String> optionsStr = new List<String>();
-        public ConsoleArgs(string[] args)
+        public List<Command> commandList = new List<Command>();
+        public Command command;
+        public List<Arg> args = new List<Arg>();
+        public List<Option> options = new List<Option>();
+        public ConsoleArgs(String[] args, List<Command> commands)
         {
-            allArgs = args;
+            allArgs         = args;
+            commandList     = commands;
         }
         
-        public void cw(){
-            Console.WriteLine("command:" + command.ToString());
-            foreach(var item in optionsStr){
-                Console.WriteLine(item);
-            }
-            foreach(var item in args){
-                Console.WriteLine(item);
-            }
-        }
-        public void parseArgs(){
-            addQueueArgs();
-            command = Command.getCommand(argsQueue.Dequeue());
+        public Command checkCommand(){
+            pushArgsQueue();
+            getCommand();
+            checkArgs();
 
-            while (argsQueue.Count > 0)
+            if (args.Count == 0){
+                throw new Exception("unknown argument for " + command.name);
+            } else {
+                command.args = args;
+            }
+
+            return command;
+        }
+
+        private void checkArgs(){
+            if(argsQueue.Count == 0){
+                throw new Exception("argument not found");
+            }
+            var arg = argsQueue.Dequeue();
+            foreach (var argItem in command.args)
             {
-                var arg = argsQueue.Dequeue();
-                if(!(arg.Contains("-"))){
-                    args.Add(Args.getArg(arg));
-                } else {
-                    optionsStr.Add(arg);
+                if (argItem.name.Equals(arg))
+                {   
+                    if(argItem.hasValue){
+                        if (argsQueue.Count == 0)
+                        {
+                            throw new Exception(argItem.name + " argument has got to be value");
+                        }
+                        argItem.value = argsQueue.Dequeue();
+                    }
+                    if (argItem.options != null)
+                    {
+                        checkOptions(argItem);
+                    }
+                    argItem.options = options;
+                    this.args.Add(argItem);
                 }
             }
         }
-        private void addQueueArgs(){
+
+        private void checkOptions(Arg argItem){
+             while(argsQueue.Count != 0){
+                var opt             = argsQueue.Dequeue();
+                var optError        = true;
+                Option lastOption   = null;
+                foreach (var option in argItem.options)
+                {
+                    if (option.name.Equals(opt))
+                    {   
+                        if(option.hasValue){
+                            if (argsQueue.Count == 0)
+                            {
+                                throw new Exception(option.name + " option has got to be value");
+                            }
+                            option.value = argsQueue.Dequeue();
+                        }
+                        optError        = false;
+                        lastOption  = option;
+                        this.options.Add(option);
+                    }
+                }
+                if (lastOption != null)
+                {
+                    argItem.options.Remove(lastOption);   
+                }
+                if (optError)
+                {
+                    throw new Exception(opt + " option does not found");
+                } 
+            }
+        }
+
+        public void getCommand(){
+            var firstArg = argsQueue.Dequeue();
+            foreach (var command in commandList)
+            {
+                if(command.name.Equals(firstArg)){
+                    this.command = command;
+                }
+            }
+            if(command == null){
+                throw new Exception("command not found");
+            }
+        }
+
+        private void pushArgsQueue(){
             foreach (var item in allArgs)
             {
                 argsQueue.Enqueue(item);
             }
-        }
-    }
-
-    static class Command {
-        private static Dictionary<String,CommandType> CommandList = new Dictionary<String,CommandType>(){
-            {"issue" , CommandType.Issue},
-            {"auth" , CommandType.Auth},
-        };
-        public static CommandType getCommand(String command){
-            if (CommandList.TryGetValue(command, out CommandType value)){
-                return value;
-            } else {
-                return CommandType.Unknown;
+            if (argsQueue.Count == 0)
+            {
+                throw new Exception("please check help page");
             }
         }
     }
 
-    public enum CommandType {
-        Issue,
-        Auth,
-        Unknown
-    }
-
-    static class Args {
-        private static Dictionary<String,ArgType> CommandList = new Dictionary<String,ArgType>(){
-            {"changeStatus" , ArgType.changeStatus},
-            {"get" , ArgType.get},
-            {"CommandType.Issue" , ArgType.changeStatus},
-            {"move" , ArgType.move},
-        };
-        public static ArgType getArg(String command){
-            if (CommandList.TryGetValue(command, out ArgType value)){
-                return value;
-            } else {
-                return ArgType.Unknown;
-            }
+    class Command {
+        public String name;
+        public List<Arg> args;
+        public Command(String name, List<Arg> args)
+        {
+            this.name       = name;
+            this.args       = args;
         }
     }
 
-
-    static class CommandArgs {
-        private static Dictionary<CommandType,ArgType> CommandList = new Dictionary<CommandType,ArgType>(){
-            {CommandType.Issue , ArgType.changeStatus},
-            {CommandType.Issue , ArgType.get},
-            {CommandType.Issue , ArgType.changeStatus},
-            {CommandType.Issue , ArgType.move},
-        };
-        public static ArgType getArgsForCommand(CommandType command){
-            if (CommandList.TryGetValue(command, out ArgType value)){
-                return value;
-            } else {
-                return ArgType.Unknown;
-            }
+    class Arg {
+        public String name;
+        public Boolean hasValue;
+        public String value;
+        public List<Option> options = new List<Option>(){};
+        public Arg(String name, Boolean hasValue, List<Option> options = null)
+        {
+            this.name       = name;
+            this.hasValue   = hasValue;
+            this.options    = options;
         }
     }
-
-    public enum ArgType {
-        changeStatus,
-        get,
-        move,
-        Unknown
+    class Option {
+        public String name;
+        public Boolean hasValue;
+        public String value;
+        public Option(String name, Boolean hasValue)
+        {
+            this.name       = name;
+            this.hasValue   = hasValue;
+        }
     }
 }
