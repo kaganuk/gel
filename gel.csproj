@@ -4,5 +4,12 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+      <PackageReference Include="System.Runtime.Serialization.Json" Version="4.3.0" />
+   </ItemGroup>
+  <PropertyGroup>
+    <RuntimeIdentifiers>osx.10.11-x64</RuntimeIdentifiers>
+  </PropertyGroup>
 
 </Project>

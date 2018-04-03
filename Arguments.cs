@@ -72,7 +72,7 @@ namespace ConsoleArguments
                             }
                             option.value = argsQueue.Dequeue();
                         }
-                        optError        = false;
+                        optError    = false;
                         lastOption  = option;
                         this.options.Add(option);
                     }
@@ -104,7 +104,7 @@ namespace ConsoleArguments
         private void pushArgsQueue(){
             foreach (var item in allArgs)
             {
-                argsQueue.Enqueue(item);
+                argsQueue.Enqueue(item.Trim());
             }
             if (argsQueue.Count == 0)
             {
