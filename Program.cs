@@ -91,8 +91,9 @@ namespace gel
             }
         }
 
-        public static async Task ProcessRequests(String url, HttpRequestType requestType, JsonContent Data = null)
+        public static async Task<JObject> ProcessRequests(String url, HttpRequestType requestType, JsonContent Data = null)
         {
+            JObject json = null;
             var client = ClientHelper.GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             switch (requestType)
@@ -111,41 +112,13 @@ namespace gel
                 }
                 case HttpRequestType.GET:
                 {
-                    var stringTask                      = client.GetStringAsync(url);
-                    var response                        = await stringTask;
-                    JObject json                        = JObject.Parse(response.ToString());
-                    IEnumerable<JToken> transitions     = json.SelectTokens("$.transitions.[*]");
-                    Dictionary<Char,Transition> dict    = new Dictionary<Char,Transition>();
-                    var i = 0;
-                    foreach(var item in transitions){
-                        i++;
-                        dict.Add(
-                            Convert.ToChar(i.ToString()),
-                            new Transition(
-                                Convert.ToInt32(item.SelectToken("$.id")),
-                                item.SelectToken("$.to.name").ToString()
-                            )
-                                
-                        );
-                        Console.WriteLine("("+i.ToString() + ") - " + item.SelectToken("$.to.name").ToString());
-                    }
-                    Char choose = Console.ReadKey().KeyChar;
-                    if(choose != '0'){
-                        if (dict.ContainsKey(choose)){
-                            ProcessRequests(url, HttpRequestType.POST, 
-                                            new JsonContent(
-                                                new { transition = new { id = dict.GetValueOrDefault(choose).id } }
-                                            )
-                            ).Wait();
-                            Console.Clear();
-                        } else {
-                            Console.WriteLine("\nInvalid number");
-                        }
-                    }
+                    var stringTask  = client.GetStringAsync(url);
+                    var response    = await stringTask;
+                    json            = JObject.Parse(response.ToString());
                     break;
                 }
             }
-            
+            return json;
         }
     }
 }
