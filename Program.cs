@@ -1,8 +1,8 @@
-﻿using System;
+﻿using RunFunctions;
+using Helpers;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,10 +19,27 @@ namespace gel
         "\n---------------------------------------- \n\n"
         +"GEL - JIRA Client App Help\n"
         + "gel help\n"
-        + "gel issue inprogress ZNG-5555\n"
-        + "gel issue waiting ZNG-5555\n"
-        + "gel config set --email lorem@ipsum.net --token sdfk55sfslslaf44sd --url sample.atlassian.net"
-        ;
+        + "gel issue move ZNG-5555\n"
+        + "gel config set --email lorem@ipsum.net --token sdfk55sfslslaf44sd --url sample.atlassian.net";
+        private static List<Command> commandList =
+            new List<Command>(){
+                new Command("issue", 
+                    new List<Arg>(){
+                        new Arg("move", true),
+                    }
+                ),
+                new Command("config", 
+                    new List<Arg>(){
+                        new Arg("set", false,
+                            new List<Option>(){
+                                new Option("--email",true),
+                                new Option("--token",true),
+                                new Option("--url",true)
+                            }
+                        )
+                    }
+                )
+            };
         static void Main(string[] args)
         {
             var cnslargs = new ConsoleArgs(args, commandList);
@@ -40,6 +57,15 @@ namespace gel
                 Console.WriteLine(exception.Message + "!!!");
                 Console.WriteLine(help);
                 return;
+            }
+        }
+        private static void run(Command command){
+            if (command.name == "issue")
+            {
+                Functions.runIssue(command);
+            } else if (command.name == "config")
+            {
+                Functions.runConfig(command);
             }
         }
         private static void setConfigs(){
@@ -64,11 +90,8 @@ namespace gel
                 throw new Exception("please set your credentials");
             }
         }
-        enum HttpRequestType { 
-            POST,
-            GET
-        }
-        private static async Task<Boolean> ProcessRequests(String url, HttpRequestType requestType, JsonContent Data = null)
+
+        public static async Task ProcessRequests(String url, HttpRequestType requestType, JsonContent Data = null)
         {
             var client = ClientHelper.GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -91,11 +114,10 @@ namespace gel
                     var stringTask                      = client.GetStringAsync(url);
                     var response                        = await stringTask;
                     JObject json                        = JObject.Parse(response.ToString());
-                    IEnumerable<JToken> token           = json.SelectTokens("$.transitions.[*]");
+                    IEnumerable<JToken> transitions     = json.SelectTokens("$.transitions.[*]");
                     Dictionary<Char,Transition> dict    = new Dictionary<Char,Transition>();
-                    Console.WriteLine("Ctrl+C for exit");
                     var i = 0;
-                    foreach(var item in token){
+                    foreach(var item in transitions){
                         i++;
                         dict.Add(
                             Convert.ToChar(i.ToString()),
@@ -109,126 +131,21 @@ namespace gel
                     }
                     Char choose = Console.ReadKey().KeyChar;
                     if(choose != '0'){
-                        ProcessRequests(url, HttpRequestType.POST, 
-                                        new JsonContent(
-                                            new { transition = new { id = dict.GetValueOrDefault(choose).id } }
-                                        )
-                        ).Wait();
-                    } else {
-                        return true;
+                        if (dict.ContainsKey(choose)){
+                            ProcessRequests(url, HttpRequestType.POST, 
+                                            new JsonContent(
+                                                new { transition = new { id = dict.GetValueOrDefault(choose).id } }
+                                            )
+                            ).Wait();
+                            Console.Clear();
+                        } else {
+                            Console.WriteLine("\nInvalid number");
+                        }
                     }
                     break;
                 }
             }
-        
-            return true;
-        }
-        private static void run(Command command){
-            if (command.name == "issue")
-            {
-                runIssue(command);
-            } else if (command.name == "config")
-            {
-                runConfig(command);
-            }
-        }
-        private static void runIssue(Command command){
-            var move        = command.args.Find(arg => arg.name == "move");
             
-            if (move != null)
-            {
-                var issueId = move.value;
-                if (issueId != null)
-                {
-                    while (true)
-                    {
-                        ProcessRequests($"https://emlakiq.atlassian.net/rest/api/2/issue/{issueId.Trim()}/transitions", HttpRequestType.GET).Wait();    
-                    }
-                }
-            }
         }
-        private static void runConfig(Command command){
-            var conf = command.args.Find(arg => arg.name == "set");
-            if (conf != null)
-            {
-                var email   = conf.options.Find(opt => opt.name == "--email");
-                var token  = conf.options.Find(opt => opt.name == "--token");
-                var url     = conf.options.Find(opt => opt.name == "--url");
-                if (email != null && token != null && url != null)
-                {
-                    ShellHelper.Bash("security delete-generic-password -s gel &>-");
-                    ShellHelper.Bash($"security add-generic-password -a {email.value} -s gel -p {token.value} -U -j {url.value}>-");
-                }
-                
-            }
-        }
-        private static List<Command> commandList =
-            new List<Command>(){
-                new Command("issue", 
-                    new List<Arg>(){
-                        new Arg("move", true),
-                    }
-                ),
-                new Command("config", 
-                    new List<Arg>(){
-                        new Arg("set", false,
-                            new List<Option>(){
-                                new Option("--email",true),
-                                new Option("--token",true),
-                                new Option("--url",true)
-                            }
-                        )
-                    }
-                )
-            };
-    }
-    public static class ClientHelper
-    {
-        public static HttpClient GetClient()
-        {
-            var authValue = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{Program.email}:{Program.key}")));
-            var client = new HttpClient(){
-                DefaultRequestHeaders = { Authorization = authValue}
-            };
-            return client;
-        }
-    }
-    public class JsonContent : StringContent
-    {
-        public JsonContent(object obj) :
-            base(JsonConvert.SerializeObject(obj), Encoding.UTF8, "application/json")
-        { }
-    }
-    public static class ShellHelper
-    {
-        public static String Bash(this String cmd, bool showResults = false)
-        {
-            var escapedArgs = cmd.Replace("\"", "\\\"");
-            
-            var process = new Process()
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "/bin/bash",
-                    Arguments = $"-c \"{escapedArgs}\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = false
-                }
-            };
-            process.Start();
-            String result = process.StandardOutput.ReadToEnd();    
-            process.WaitForExit();
-            return result;
-        }
-    }
-    public class Transition{
-        public Int32 id { get; }
-        public String name { get; }
-        public Transition(Int32 id, String name)
-        {
-            this.id     = id;
-            this.name   = name;
-        }  
     }
 }

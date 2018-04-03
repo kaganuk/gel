@@ -113,7 +113,7 @@ namespace ConsoleArguments
         }
     }
 
-    class Command {
+    public class Command {
         public String name;
         public List<Arg> args;
         public Command(String name, List<Arg> args)
@@ -123,7 +123,7 @@ namespace ConsoleArguments
         }
     }
 
-    class Arg {
+    public class Arg {
         public String name;
         public Boolean hasValue;
         public String value;
@@ -135,7 +135,7 @@ namespace ConsoleArguments
             this.options    = options;
         }
     }
-    class Option {
+    public class Option {
         public String name;
         public Boolean hasValue;
         public String value;
